@@ -9,6 +9,7 @@ import sqlite3
 import matplotlib.pyplot as plt
 from .models import CryptoDataset, Purchase, Wallet
 import plotly.graph_objects as go
+import datetime
 
 
 def support(df1, l, n1, n2):
@@ -46,15 +47,74 @@ class Index(TemplateView):
         chart = []
         Wallet.objects.all()
 
-        wallet = Wallet.objects.get(id=2)
-        context['wallet'] = wallet.wallet
+        wal = Wallet.objects.get(id=2)
+        context['wallet'] = wal.wallet
         conn = sqlite3.connect("db.sqlite3")
         df = pd.read_sql_query("select * from RuntimeGraphs_cryptodataset;", conn)
+        # wallet analysis
+
+        btc_year = wal.btc
+        cash_year = wal.wallet
+
+        Current_date = datetime.date.today().strftime('%Y-%m-%d')
+        times = pd.date_range('2018-05-15', '2021-11-20')
+        df_wl = df.copy()
+        df_wl = df_wl.sort_index()
+        df_wl['Date'] = pd.to_datetime(df_wl['date']).dt.date
+        df_wl['Time'] = pd.to_datetime(df_wl['date']).dt.time
+        df_wl = df_wl.sort_index()
+        df_wl['Date'] = df_wl['Date'].astype(str)
+        total_selling = 0
+        total_buying = 0
+        value = df_wl
+        for dat in times:
+            value = df_wl[df_wl['Date'] == str(dat.date())]
+            for i in range(0, len(value) - 1):
+                PA = ((value.close.iloc[i] - value.close.iloc[i + 1]) / value.close.iloc[i + 1]) * 100
+                if PA >= 5:
+                    if btc_year >= 0:
+                        amount = (100 / value.close.iloc[i])
+                        btc_year -= amount
+                        cash_year += 100
+                        total_selling += 1
+                elif PA <= -5:
+                    if cash_year >= 100:
+                        cash_year -= 100
+                        btc_year += (1 / value.close.iloc[i]) * 100
+                        total_buying += 1
+
+        pa = (((value.close.iloc[-2] - value.close.iloc[-1]) / value.close.iloc[-1]) * 100).round(2)
+        signal = ''
+        btc = wal.btc
+        cash = wal.wallet
+        while 1:
+            if pa >= 2:
+                if pa >= 5:
+                    if btc >= 0:
+                        signal += 'Sold btc'
+                else:
+                    signal += 'Sell coin now!'
+            elif pa <= -5:
+                if cash >= 100:
+                    signal += 'Coin is purchased'
+            else:
+                signal += 'do nothing'
+            break
+        context['pa'] = pa
+        context['signal'] = signal
+        context['starting'] = df_wl['Date'].iloc[0]
+        context['ending'] = df_wl['Date'].iloc[-1]
+        context['btc_year'] = btc_year
+        context['cash_year'] = cash_year
+
+        context['cash_start'] = wal.wallet
+        context['btc_start'] = wal.btc
+        # plotting graphs
         df['Date'] = pd.to_datetime(df['date']).dt.date
         df['Time'] = pd.to_datetime(df['date']).dt.time
         df = df.sort_index()
         df['Date'] = df['Date'].astype(str)
-        layout = go.Layout(title="1 Month Bitcoin Data", xaxis={'title': 'Closing Price'}, yaxis={'title': 'Date'})
+        layout = go.Layout(title="1 Month Bitcoin Data", xaxis={'title': 'Date'}, yaxis={'title': 'Close'})
         fig = go.Figure(data=[go.Candlestick(x=df.date.iloc[-720:-1],
                                              open=df['open'],
                                              high=df['high'],
@@ -65,7 +125,7 @@ class Index(TemplateView):
         dfpl = value
         df.reset_index(drop=True, inplace=True)
         df.isna().sum()
-        layout = go.Layout(title="24 Hours Bitcoin Data", xaxis={'title': 'Closing Price'}, yaxis={'title': 'Date'})
+        layout = go.Layout(title="24 Hours Bitcoin Data", xaxis={'title': 'Date'}, yaxis={'title': 'Close'})
         fig = go.Figure(data=[go.Candlestick(x=dfpl.date,
                                              open=dfpl['open'],
                                              high=dfpl['high'],
@@ -73,6 +133,22 @@ class Index(TemplateView):
                                              close=dfpl['close'])], layout=layout)
 
         chart.append(fig.to_html())
+
+        # from sklearn.linear_model import LinearRegression
+        #
+        # X = np.array(value['open'].iloc[-720:-1]).reshape(-1, 1)
+        # y = np.array(value['close'].iloc[-720:-1]).reshape(-1, 1)
+        # lr = LinearRegression()
+        # lr.fit(X, y)
+        # print("R-Squared: ", lr.score(X, y))
+        # prediction = lr.predict(X)
+        # # Visualize our model
+        # plt.scatter(X.flatten(), y.flatten(), color="red")
+        # plt.plot(X.flatten(), prediction.flatten(), color="green")
+        # plt.title("Open vs  Close Price")
+        # plt.xlabel("No of observations")
+        # plt.ylabel("Close Price")
+        # plt.show()
 
         # sr = []
         # n1 = 3

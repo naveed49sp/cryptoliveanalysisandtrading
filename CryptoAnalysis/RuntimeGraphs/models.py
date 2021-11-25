@@ -16,7 +16,9 @@ class CryptoDataset(models.Model):
 
 
 class Wallet(models.Model):
+    username = models.CharField(default='user1', max_length=255)
     wallet = models.FloatField()
+    btc = models.FloatField(default=1.0)
 
     def __float__(self):
         return self.wallet

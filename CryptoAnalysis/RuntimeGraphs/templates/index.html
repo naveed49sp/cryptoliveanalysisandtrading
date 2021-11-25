@@ -4,7 +4,19 @@
 
 {% if wallet %}
 <div>Wallet Price: {{ wallet }} </div>
+
 {% endif %}
+<h3>Current Close Percentage </h3>
+<div>Percentage: {{ pa }}</div>
+<div>What to do: {{ signal }}</div>
+<h3>If a user invest before 2 years!</h3>
+<div>Starting Date: {{ starting }}</div>
+<div>Ending Date: {{ ending }}</div>
+<div>Cash Initial: {{ cash_start}}</div>
+<div>BTC Initial: {{ btc_start}}</div>
+<h4>After 2 Year Price would be...</h4>
+<div>Btc Remaining: {{ btc_year }} </div>
+<div>Cash Remaining: {{ cash_year }}</div>
 
 {% if graph %}
 
