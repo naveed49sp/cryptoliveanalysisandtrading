@@ -1,9 +1,14 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Index Page Runtime App</h1>
-{% if chart %}
-{% for graph in chart%}
-<img src="data:image/png;base64, {{ graph|safe }}">
-{% endfor %}
+<!--{% if chart %}-->
+<!--{% for graph in chart%}-->
+<!--<img src="data:image/png;base64, {{ graph|safe }}">-->
+<!--{% endfor %}-->
+<!--{% endif %}-->
+{% if index %}
+<div style="width:600;height:500">
+{{ index|safe }}
+</div>
 {% endif %}
 {% endblock %}

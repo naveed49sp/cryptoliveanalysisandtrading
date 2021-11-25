@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
+import plotly.graph_objects as go
 
 
 def get_graph():
@@ -21,5 +22,16 @@ def get_plot(x, y):
     plt.plot(x, y)
     plt.xticks(rotation=45)
     plt.tight_layout()
+    graph = get_graph()
+    return graph
+
+
+def get_plot_candle(open, close, high, low, index):
+    sc = go.Figure(data=[go.Candlestick(x=index,
+                                        open=open,
+                                        high=high,
+                                        low=low,
+                                        close=close)])
+    plt.plot(sc)
     graph = get_graph()
     return graph
