@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CryptoDataset
+from .models import CryptoDataset, Wallet, Purchase
 
 
 class DatasetAdmin(admin.ModelAdmin):
@@ -7,3 +7,17 @@ class DatasetAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CryptoDataset)
+
+
+class WalletAdmin(admin.ModelAdmin):
+    list_display = ('Id', 'wallet')
+
+
+admin.site.register(Wallet)
+
+
+class PurchaseAdmin(admin.ModelAdmin):
+    list_display = ('currency_name', 'currency_purchase', 'currency_purchase', 'is_sold', 'net_gain')
+
+
+admin.site.register(Purchase)
