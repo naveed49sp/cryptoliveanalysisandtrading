@@ -11,6 +11,8 @@ class Command(BaseCommand):
         data.drop('Adj Close', axis=1, inplace=True)
         print(data.columns)
 
+
+
         for agency in data.itertuples():
             fortune = CryptoDataset(date=getattr(agency, 'Index'), open=getattr(agency, 'Open'),
                                     close=getattr(agency, 'Close'), volume=getattr(agency, 'Volume'),

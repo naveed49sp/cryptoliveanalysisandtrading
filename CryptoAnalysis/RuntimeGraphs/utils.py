@@ -15,23 +15,17 @@ def get_graph():
     return graph
 
 
-def get_plot(x, y):
+def get_plot(x, y, title, xlabel, ylabel, scatter=None, x_sca=None, y_sca=None):
     plt.switch_backend('AGG')
     plt.figure(figsize=(10, 5))
-    plt.title("Bitcoin Graphs")
+    plt.title(title)
     plt.plot(x, y)
     plt.xticks(rotation=45)
+    if scatter is not None:
+        plt.scatter(x_sca, y_sca, color="red")
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     plt.tight_layout()
     graph = get_graph()
     return graph
 
-
-def get_plot_candle(open, close, high, low, index):
-    sc = go.Figure(data=[go.Candlestick(x=index,
-                                        open=open,
-                                        high=high,
-                                        low=low,
-                                        close=close)])
-    plt.plot(sc)
-    graph = get_graph()
-    return graph

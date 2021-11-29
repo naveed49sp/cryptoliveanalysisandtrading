@@ -3,7 +3,13 @@ import sqlite3
 import pandas as pd
 import yfinance as yf
 from django.core.management.base import BaseCommand
+import numpy as np
+from matplotlib import pyplot as plt
+
 from ...models import CryptoDataset, Purchase, Wallet
+import yfinance as yf
+import matplotlib.dates as mpl_dates
+
 
 
 class Command(BaseCommand):
@@ -12,35 +18,38 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         conn = sqlite3.connect("db.sqlite3")
         df = pd.read_sql_query("select * from RuntimeGraphs_cryptodataset;", conn)
-        # wallet analysis
-        wallet = Wallet.objects.get(id=2)
-        btc = wallet.btc
-        wallet = wallet.wallet
+        df_date = df.copy()
+        df_date['date'] = pd.to_datetime(df_date['date'])
+        df_date.set_index('date', drop=True, inplace=True)
 
-        Current_date = datetime.date.today().strftime('%Y-%m-%d')
-        times = pd.date_range('2018-05-15', '2021-11-20')
-        df_wl = df.copy()
-        df_wl = df_wl.sort_index()
-        df_wl['Date'] = pd.to_datetime(df_wl['date']).dt.date
-        df_wl['Time'] = pd.to_datetime(df_wl['date']).dt.time
+        def SMA(data, period=24, column='close'):
+            return data[column].rolling(window=period).mean()
 
-        df_wl = df_wl.sort_index()
-        df_wl['Date'] = df_wl['Date'].astype(str)
-        total_selling = 0
-        total_buying = 0
-        for dat in times:
-            value = df_wl[df_wl['Date'] == str(dat.date())]
-            for i in range(0, len(value)-1):
-                PA = ((value.close.iloc[i] - value.close.iloc[i + 1]) / value.close.iloc[i + 1]) * 100
-                if PA >= 5:
-                    if btc >= 0:
-                        amount = (100 / value.close.iloc[i]).round(7)
-                        btc -= amount
-                        wallet += 100
-                        total_selling += 1
-                elif PA < -5:
-                    if wallet >= 100:
-                        wallet -= 100
-                        btc += (1 / value.close.iloc[i]).round(7) * 100
-                        total_buying += 1
-        print(wallet, btc)
+        def strategy(df):
+            buy = []
+            sell = []
+            flag = 0
+            buy_price = 0
+
+            for i in range(0, len(df)):
+                if df['SMA24'][i] > df['close'][i] and flag == 0:
+                    buy.append(df['close'][i])
+                    sell.append(np.nan)
+                    buy_price = df['close'][i]
+                    flag = 1
+                elif df['SMA24'][i] < df['close'][i] and flag == 1 and buy_price < df['close'][i]:
+                    sell.append(df['close'][i])
+                    buy.append(np.nan)
+                    buy_price = 0
+                    flag = 0
+                else:
+                    sell.append(np.nan)
+                    buy.append(np.nan)
+
+            return buy, sell
+        df_date = df_date.tail(168)
+        df_date['SMA24'] = SMA(df_date)
+        strat = strategy(df_date)
+        df_date['Buy'] = strat[0]
+        df_date['Sell'] = strat[1]
+        print(df_date['Sell'].isnull().sum())

@@ -1,72 +1,92 @@
+from datetime import datetime
 from django.shortcuts import render
 from django.views.generic import TemplateView
-import random
-from matplotlib.animation import FuncAnimation
-from itertools import count
-from django.http import HttpResponse
+from sklearn.linear_model import LinearRegression
+from pylab import rcParams
+from fbprophet import Prophet
+import numpy as np
 import pandas as pd
 import sqlite3
 import matplotlib.pyplot as plt
-from .models import CryptoDataset, Purchase, Wallet
+import matplotlib.pyplot as plt_sal
+from .models import Wallet
 import plotly.graph_objects as go
-import datetime
+import mpld3
+
+plt_sal.style.use('fivethirtyeight')
+# from fbprophet import Prophet
+from matplotlib import pyplot as plt23
+import statsmodels.api as sm
 
 
-def support(df1, l, n1, n2):
-    for i in range(l - n1 + 2, l + 1):
-
-        if df1.low[i] > df1.low[i - 1]:
-            print('working')
-            return 0
-    for i in range(l + 1, l + n2 + 1):
-        if df1.low[i] < df1.low[i - 1]:
-            return 0
-    return 1
+def is_support(df, i):
+    support = df['low'][i] < df['low'][i - 1] < df['low'][i - 2] and df['low'][i] < df['low'][i + 1] < df['low'][
+        i + 2]
+    return support
 
 
-# support(df,46,3,2)
-
-def resistance(df1, l, n1, n2):  # n1 n2 before and after candle l
-    for i in range(l - n1 + 2, l + 1):
-        if df1.high[i] < df1.high[i - 1]:
-            return 0
-    for i in range(l + 1, l + n2 + 1):
-        if df1.high[i] > df1.high[i - 1]:
-            return 0
-    return 1
+def is_resistance(df, i):
+    resistance = df['high'][i] > df['high'][i - 1] > df['high'][i - 2] and df['high'][i] > df['high'][i + 1] > \
+                 df['high'][i + 2]
+    return resistance
 
 
-# resistance(df, 30, 3, 5)
+def SMA(data, period=24, column='close'):
+    return data[column].rolling(window=period).mean()
+
+
+def strategy(df):
+    buy = []
+    sell = []
+    flag = 0
+    buy_price = 0
+
+    for i in range(0, len(df)):
+        if df['SMA24'][i] > df['close'][i] and flag == 0:
+            buy.append(df['close'][i])
+            sell.append(np.nan)
+            buy_price = df['close'][i]
+            flag = 1
+        elif df['SMA24'][i] < df['close'][i] and flag == 1 and buy_price < df['close'][i]:
+            sell.append(df['close'][i])
+            buy.append(np.nan)
+            buy_price = 0
+            flag = 0
+        else:
+            sell.append(np.nan)
+            buy.append(np.nan)
+    return buy, sell
 
 
 class Index(TemplateView):
     template_name = 'index.html'
 
     def get_context_data(self, **kwargs):
+        # initiate context
         context = super().get_context_data(**kwargs)
         chart = []
+        # get variable from Wallet
         Wallet.objects.all()
-
         wal = Wallet.objects.get(id=2)
         context['wallet'] = wal.wallet
+
+        # make connection to database and get runtimegraphs table into dataframe
         conn = sqlite3.connect("db.sqlite3")
         df = pd.read_sql_query("select * from RuntimeGraphs_cryptodataset;", conn)
-        # wallet analysis
-
+        # 1 year comprehensive analysis
+        dd = df.copy()
         btc_year = wal.btc
         cash_year = wal.wallet
-
-        Current_date = datetime.date.today().strftime('%Y-%m-%d')
-        times = pd.date_range('2018-05-15', '2021-11-20')
+        df_date = df.copy()
+        df_sal = df.copy()
+        times = pd.date_range(end=datetime.now(), freq="H", periods=8760)
         df_wl = df.copy()
-        df_wl = df_wl.sort_index()
+        # df_wl = df_wl.sort_index()
         df_wl['Date'] = pd.to_datetime(df_wl['date']).dt.date
         df_wl['Time'] = pd.to_datetime(df_wl['date']).dt.time
-        df_wl = df_wl.sort_index()
+        # df_wl = df_wl.sort_index()
         df_wl['Date'] = df_wl['Date'].astype(str)
-        total_selling = 0
-        total_buying = 0
-        value = df_wl
+        context['previous_btc_val'] = (df_wl[df_wl['Date'] == str(times[0].date())].iloc[0].close * btc_year).round(2)
         for dat in times:
             value = df_wl[df_wl['Date'] == str(dat.date())]
             for i in range(0, len(value) - 1):
@@ -76,14 +96,12 @@ class Index(TemplateView):
                         amount = (100 / value.close.iloc[i])
                         btc_year -= amount
                         cash_year += 100
-                        total_selling += 1
                 elif PA <= -5:
                     if cash_year >= 100:
                         cash_year -= 100
                         btc_year += (1 / value.close.iloc[i]) * 100
-                        total_buying += 1
-
-        pa = (((value.close.iloc[-2] - value.close.iloc[-1]) / value.close.iloc[-1]) * 100).round(2)
+        context['now_btc_val'] = (df.close.iloc[-1] * btc_year).round(2)
+        pa = (((df.close.iloc[-2] - df.close.iloc[-1]) / df.close.iloc[-1]) * 100).round(2)
         signal = ''
         btc = wal.btc
         cash = wal.wallet
@@ -100,69 +118,129 @@ class Index(TemplateView):
             else:
                 signal += 'do nothing'
             break
+        # variable to display on the webpage
         context['pa'] = pa
         context['signal'] = signal
-        context['starting'] = df_wl['Date'].iloc[0]
-        context['ending'] = df_wl['Date'].iloc[-1]
+        context['starting'] = times[0]
+        context['ending'] = times[-1]
         context['btc_year'] = btc_year
         context['cash_year'] = cash_year
-
         context['cash_start'] = wal.wallet
         context['btc_start'] = wal.btc
-        # plotting graphs
+
+        # plot monthly graph
         df['Date'] = pd.to_datetime(df['date']).dt.date
         df['Time'] = pd.to_datetime(df['date']).dt.time
-        df = df.sort_index()
-        df['Date'] = df['Date'].astype(str)
         layout = go.Layout(title="1 Month Bitcoin Data", xaxis={'title': 'Date'}, yaxis={'title': 'Close'})
-        fig = go.Figure(data=[go.Candlestick(x=df.date.iloc[-720:-1],
+        fig = go.Figure(data=[go.Candlestick(x=df.date.iloc[-720:],
                                              open=df['open'],
                                              high=df['high'],
                                              low=df['low'],
                                              close=df['close'])], layout=layout)
-        chart.append(fig.to_html())
-        value = df[df['Date'].astype(str) == '2021-11-23']
-        dfpl = value
-        df.reset_index(drop=True, inplace=True)
-        df.isna().sum()
-        layout = go.Layout(title="24 Hours Bitcoin Data", xaxis={'title': 'Date'}, yaxis={'title': 'Close'})
-        fig = go.Figure(data=[go.Candlestick(x=dfpl.date,
-                                             open=dfpl['open'],
-                                             high=dfpl['high'],
-                                             low=dfpl['low'],
-                                             close=dfpl['close'])], layout=layout)
+        context['graph_message_1'] = ''
+        context['graph_1'] = fig.to_html()
+        # plot graph on hourly basis
+        value = df.iloc[-24:]
+        dfpl = value.copy()
+        fig = go.Figure()
+        fig.update_layout(title="24 Hours Bitcoin Data", xaxis_title='Date', yaxis_title='Close')
+        fig.add_trace(go.Candlestick(x=dfpl['Time'],
+                                     open=dfpl.open,
+                                     high=dfpl.high,
+                                     low=dfpl.low,
+                                     close=dfpl.close))
+        context['graph_message_2'] = ''
+        context['graph_2'] = fig.to_html()
+        # 2020 and 2021 difference
+        df_date['date'] = pd.to_datetime(df_date['date'])
+        df_date.set_index('date', drop=True, inplace=True)
+        m2021 = df_date.loc['2021', 'close'].resample('M').mean().values
+        m2020 = df_date.loc['2020', 'close'].resample('M').mean().values
+        fig = plt.figure(figsize=(6.5, 2), dpi=180)
+        plt.plot(m2021, label='2021')
+        plt.plot(m2020, label='2020')
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        plt.xticks(np.arange(0, 12), labels=months, rotation=75)
+        plt.legend(loc=0)
+        plt.grid(True, alpha=0.1)
+        html_str = mpld3.fig_to_html(fig)
+        context['graph_3'] = html_str
+        context['graph_message_3'] = '''
+        The above graph shows the average of monthly price for 2020 and 2021. Follwoing are major insights from the graph
 
-        chart.append(fig.to_html())
+- There is a stron up trend from Oct-2020 to Apr-2021
 
-        # from sklearn.linear_model import LinearRegression
-        #
-        # X = np.array(value['open'].iloc[-720:-1]).reshape(-1, 1)
-        # y = np.array(value['close'].iloc[-720:-1]).reshape(-1, 1)
+- From Apr to July there is fall in prices
+
+- For both of the years there is up-trend.
+
+Let's dig into the details from Apr to July 2021'''
+
+        aprtojul = df_date.loc['2021-4-1':'2021-7-31', 'close'].resample('W').mean()
+        fig = plt.figure(figsize=(6, 2), dpi=200)
+        plt.plot(aprtojul)
+        plt.xticks(rotation=75)
+        plt.grid(True, alpha=0.1)
+        html_str = mpld3.fig_to_html(fig)
+        context['graph_4'] = html_str
+        context['graph_message_4'] = """
+        Conclusions are:
+
+- There is a small uptrend from third week of april to second week of May
+
+- From 7th of May to 15th of June there is a strong down-trend
+        """
+        context["graph_message_5_upper"] = """
+        Since its a Hourly time series and may follows a certain repetitive pattern every day, we can plot each day as a separate line in the same plot. This lets you compare the day wise patterns side-by-side. Seasonal Plot of a Time Series
+
+"""
+        df_date['year'] = [d.year for d in df_date.index]
+        df_date['month'] = [d.strftime('%b') for d in df_date.index]
+        fig = plt.figure(figsize=(4, 2), dpi=300)
+        ax1 = plt.plot(df_date.loc[df_date.year == 2020, 'month'], df_date.loc[df_date.year == 2020, 'close'],
+                       label='2020')
+        ax2 = plt.plot(df_date.loc[df_date.year == 2021, 'month'], df_date.loc[df_date.year == 2021, 'close'],
+                       label='2021')
+        plt.grid(True, alpha=0.2)
+        plt.legend()
+        html_str = mpld3.fig_to_html(fig)
+        context['graph_5'] = html_str
+        context['graph_message_5'] = """
+        Conclusions are:
+
+- There is huge fluctuation in 2021 compare to 2020
+
+- Oct, May and Feb are high fluctuated months
+        """
+
+        # X = np.array(df['open'].iloc[-720:-1]).reshape(-1, 1)
+        # y = np.array(df['close'].iloc[-720:-1]).reshape(-1, 1)
         # lr = LinearRegression()
         # lr.fit(X, y)
-        # print("R-Squared: ", lr.score(X, y))
         # prediction = lr.predict(X)
         # # Visualize our model
-        # plt.scatter(X.flatten(), y.flatten(), color="red")
-        # plt.plot(X.flatten(), prediction.flatten(), color="green")
-        # plt.title("Open vs  Close Price")
-        # plt.xlabel("No of observations")
+        # figure = plt.figure(figsize=(11, 4))
+        # plt.scatter(X.flatten(), y.flatten(), color="red", label='Data')
+        # plt.plot(X.flatten(), prediction.flatten(), color="green", label='Regression Line')
+        # plt.title("Open Price vs  Close Price")
+        # plt.xlabel("Open Price")
         # plt.ylabel("Close Price")
-        # plt.show()
-
+        # plt.legend(loc=0)
+        # html_str = mpld3.fig_to_html(figure)
+        # chart.append(html_str)
+        # # chart.append(get_plot(X.flatten(), prediction.flatten(), True, X.flatten(), y.flatten()))
+        #
+        # value.set_index('Date', drop=True, inplace=True)
         # sr = []
-        # n1 = 3
-        # n2 = 2
-        # for row in range(n1, len(value)):  # len(df)-n
-        #     #     print(value.low[row], value.low[row-1])
-        #     if support(value, row, n1, n2):
-        #         sr.append((row, value.low[row], 1))
-        #     if resistance(value, row, n1, n2):
-        #         sr.append((row, value.high[row], 2))
+        # for i in range(2, value.shape[0] - 2):
+        #     if is_support(value, i):
+        #         sr.append((i, value['low'][i]))
+        #     elif is_resistance(value, i):
+        #         sr.append((i, value['high'][i]))
         # s = 0
         # e = len(value)
         # dfpl = value[s:e]
-        # fig = go.Figure(data=[go.Candlestick(x=dfpl.index,
+        # fig = go.Figure(data=[go.Candlestick(x=dfpl['Time'],
         #                                      open=dfpl['open'],
         #                                      high=dfpl['high'],
         #                                      low=dfpl['low'],
@@ -179,28 +257,27 @@ class Index(TemplateView):
         #     c += 1
         # chart.append(fig.to_html())
         #
-        # plotlist1 = [x[1] for x in sr if x[2] == 1]
-        # plotlist2 = [x[1] for x in sr if x[2] == 2]
+        # plotlist1 = [x[0] for x in sr if x[1] == 1]
+        # plotlist2 = [x[0] for x in sr if x[1] == 2]
         # plotlist1.sort()
         # plotlist2.sort()
         #
         # for i in range(1, len(plotlist1)):
         #     if (i >= len(plotlist1)):
         #         break
-        #     if abs(plotlist1[i] - plotlist1[i - 1]) <= 0.005:
+        #     elif abs(plotlist1[i] - plotlist1[i - 1]) <= 0.005:
         #         plotlist1.pop(i)
         #
         # for i in range(1, len(plotlist2)):
         #     if (i >= len(plotlist2)):
         #         break
-        #     if abs(plotlist2[i] - plotlist2[i - 1]) <= 0.005:
+        #     elif abs(plotlist2[i] - plotlist2[i - 1]) <= 0.005:
         #         plotlist2.pop(i)
         #
         # s = 0
         # e = 24
         # dfpl = value[s:e]
-        #
-        # fig = go.Figure(data=[go.Candlestick(x=dfpl.index,
+        # fig = go.Figure(data=[go.Candlestick(x=dfpl['Time'],
         #                                      open=dfpl['open'],
         #                                      high=dfpl['high'],
         #                                      low=dfpl['low'],
@@ -216,7 +293,6 @@ class Index(TemplateView):
         #                   line=dict(color="MediumPurple", width=3)
         #                   )
         #     c += 1
-        #
         # c = 0
         # while (1):
         #     if (c > len(plotlist2) - 1):  # or sr[c][0]>e
@@ -232,19 +308,17 @@ class Index(TemplateView):
         #
         # ss = []
         # rr = []
-        # n1 = 2
-        # n2 = 2
-        # for row in range(3, len(value)):  # len(df)-n2
-        #     if support(value, row, n1, n2):
-        #         ss.append((row, df.low[row]))
-        #     if resistance(value, row, n1, n2):
-        #         rr.append((row, df.high[row]))
-        #
+        # for i in range(2, value.shape[0] - 2):
+        #     if is_support(value, i):
+        #         ss.append((i, value['low'][i]))
+        #     elif is_resistance(value, i):
+        #         rr.append((i, value['high'][i]))
+        # #
         # s = 0
         # e = len(value)
         # dfpl = value[s:e]
         #
-        # fig = go.Figure(data=[go.Candlestick(x=dfpl.index,
+        # fig = go.Figure(data=[go.Candlestick(x=dfpl.Time,
         #                                      open=dfpl['open'],
         #                                      high=dfpl['high'],
         #                                      low=dfpl['low'],
@@ -274,7 +348,75 @@ class Index(TemplateView):
         #
         # chart.append(fig.to_html())
 
-        context['graph'] = chart
+        #         rcParams['figure.figsize'] = 18, 8
+        #         y = df_date.loc['2021':'2020', 'close'].resample('MS').mean()
+        #         decomposition = sm.tsa.seasonal_decompose(y, model='additive')
+        #         fig = decomposition.plot()
+        #         html_str = mpld3.fig_to_html(fig)
+        #         context['graph_6'] = html_str
+        #         context['graph_message_6'] = """
+        #         Conclusion:
+        #
+        # We can see that there is stron uptrend after 5th month of 2020
+        #
+        # There is seasonal uptrend from 1st to 5th month of each year, and down trend from 5th to 10th month
+        #         """
+        dd['date'] = pd.to_datetime(dd['date'])
+        dd.drop_duplicates(subset='close', keep='first')
+        dd.drop(['open', 'high', 'low', 'volume'], axis=1, inplace=True)
+        dd['Date'] = dd['date'].dt.date
+        dd.set_index('Date')
+        dd.drop(['date'], axis=1, inplace=True)
+        dd.columns = ['y', 'ds']
+        m = Prophet(interval_width=0.95, daily_seasonality=True)
+        model = m.fit(dd)
+        future = m.make_future_dataframe(periods=100, freq='D')
+        forecast = m.predict(future)
+        fig = plt23.figure(figsize=(8, 8))
+        m.plot(forecast)
+        m.plot_components(forecast)
+        html_str = mpld3.fig_to_html(fig)
+        context['graph_7'] = html_str
+        context['graph_message_7'] = ""
+
+        df_sal['date'] = pd.to_datetime(df_sal['date'])
+        df_sal.set_index('date', drop=True, inplace=True)
+        df_sal = df_sal.tail(168)
+        df_sal['SMA24'] = SMA(df_sal)
+        # Get the buy and sell list
+        strat = strategy(df_sal)
+        df_sal['Buy'] = strat[0]
+        df_sal['Sell'] = strat[1]
+
+        # Visualize the close price and the buy and sell signals
+        fig = plt_sal.figure(figsize=(10.5, 4))
+        plt_sal.title('Bitcoin Close Price and MVA with Buy and Sell Signals')
+        plt_sal.plot(df_sal['close'], alpha=0.5, label='Close Price Last 7 days')
+        plt_sal.plot(df_sal['SMA24'], alpha=0.5, label='Simple Moving Avg')
+        plt_sal.scatter(df_sal.index, df_sal['Buy'], color='green', label='Buy Signal', alpha=1)
+        plt_sal.scatter(df_sal.index, df_sal['Sell'], color='red', label='Sell Signal', alpha=1)
+        plt_sal.xlabel('Date')
+        plt_sal.ylabel('Close Price in USD')
+        plt_sal.legend(loc=3)
+        html_str = mpld3.fig_to_html(fig)
+        context['graph_6'] = html_str
+        context['graph_message_6'] = """
+The graph above shows the relationship between the date and the close price of Bitcoin in USD.
+
+The blue line trend represents the closing price of Bitcoin over the last seven days, while the red line trend represents the moving averages over one day. 
+
+There are also Buy and Sell Signals on this graph.
+
+Buy = green :-
+
+  Buy the Bitcoin when SMA of 1 day goes below the close price 
+
+Sell = Red :-
+
+  Sell When the 1 day SMA goes above the close price
+
+Also, Never going to sell at a price lower than I bought.
+                """
 
         return context
 
