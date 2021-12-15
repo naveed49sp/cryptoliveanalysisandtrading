@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CryptoDataset, Wallet, Purchase
+from .models import CryptoDataset, ETHDataset, Wallet, Purchase
 
 
 class DatasetAdmin(admin.ModelAdmin):
@@ -21,3 +21,4 @@ class PurchaseAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Purchase)
+admin.site.register(ETHDataset)

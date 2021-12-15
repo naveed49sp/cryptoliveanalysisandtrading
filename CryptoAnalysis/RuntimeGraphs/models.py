@@ -14,13 +14,26 @@ class CryptoDataset(models.Model):
         return self.date
 
 
+class ETHDataset(models.Model):
+    date = models.DateTimeField(primary_key=True)
+    open = models.FloatField()
+    low = models.FloatField()
+    close = models.FloatField()
+    high = models.FloatField()
+    volume = models.FloatField()
+
+    def __str__(self):
+        return self.date
+
 class Wallet(models.Model):
     username = models.CharField(default='user1', max_length=255)
     wallet = models.FloatField()
     btc = models.FloatField(default=1.0)
-
+    eth = models.FloatField(default=1.0)
+    # ad=models.FloatField(default=1.0)
+ 
     def __float__(self):
-        return self.wallet
+        return self.username
 
 
 class Purchase(models.Model):
@@ -32,3 +45,12 @@ class Purchase(models.Model):
 
     def __str__(self):
         return self.currency_name
+    
+    
+# class Employee(models.Model):  
+#     eid = models.CharField(max_length=20)  
+#     ename = models.CharField(max_length=100)  
+#     eemail = models.EmailField()  
+#     econtact = models.CharField(max_length=15)  
+#     class Meta:  
+#         db_table = "employee" 

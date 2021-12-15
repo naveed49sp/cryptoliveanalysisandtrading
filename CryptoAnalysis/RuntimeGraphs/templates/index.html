@@ -1,54 +1,18 @@
+
 {% extends 'base.html' %}
+
 {% block content %}
-<h1>Index Page Runtime App</h1>
 
-{% if wallet %}
-<div>Wallet Price: {{ wallet }} </div>
 
+{% if error %}
+{{ error }}
+
+<br/>
+<br/>
 {% endif %}
-<h3>Current Close Percentage </h3>
-<div>Percentage: {{ pa }}</div>
-<div>What to do: {{ signal }}</div>
-<h3>If a user invest before 1 years!</h3>
-<div>Starting Date: {{ starting }}</div>
-<div>Ending Date: {{ ending }}</div>
-<div>Cash Initial: USD{{ cash_start}}</div>
-<div>BTC Initial: {{ btc_start}}</div>
-<div>BTC Value: USD{{ previous_btc_val }}</div>
-<h4>After 1 Year Price would be...</h4>
-<div>Btc Remaining: {{ btc_year }} </div>
-<div>Cash Remaining: USD{{ cash_year }}</div>
-<div>Btc Remaining Value: USD{{ now_btc_val }}</div>
+
+<h1>Welcome to Crypto Analysis</h1>
 
 
-<div style="width:600;height:500">
-{{ graph_1|safe }}
-</div>
-<div> {{ graph_message_1 }}</div>
 
-<div style="width:600;height:500">
-{{ graph_2|safe }}
-</div>
-<div> {{ graph_message_2 }}</div>
-<div style="width:600;height:500">
-{{ graph_3|safe }}
-</div>
-<div> {{ graph_message_3 }}</div>
-<div style="width:600;height:500">
-{{ graph_4|safe }}
-</div>
-<div> {{ graph_message_4 }}</div>
-<div> {{ graph_message_5_upper }}</div>
-<div style="width:600;height:500">
-{{ graph_5|safe }}
-</div>
-<div> {{ graph_message_5 }}</div>
-<div style="width:600;height:500">
-{{ graph_6|safe }}
-</div>
-<div> {{ graph_message_6 }}</div>
-<div style="width:600;height:500">
-{{ graph_7|safe }}
-</div>
-<div> {{ graph_message_7 }}</div>
 {% endblock %}

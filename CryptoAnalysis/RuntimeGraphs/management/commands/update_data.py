@@ -3,7 +3,8 @@ import yfinance as yf
 from django.core.management.base import BaseCommand
 from ...models import CryptoDataset, Wallet, Purchase
 import time
-
+import pandas as pd
+import sqlite3
 
 class Command(BaseCommand):
     help = "A command to add data from dataframe to the database"
@@ -16,30 +17,28 @@ class Command(BaseCommand):
             fortune = CryptoDataset(date=data.index[-1], open=d1['Open'],
                                     close=d1['Close'], volume=d1['Volume'],
                                     high=d1['High'], low=d1['Low'])
-            pa = (((data.Close.iloc[-2] - data.Close.iloc[-1]) / data.Close.iloc[-1]) * 100).round(2)
             fortune.save()
+            conn = sqlite3.connect("db.sqlite3")
+            df = pd.read_sql_query("select * from RuntimeGraphs_cryptodataset;", conn)
+            pa = (((df.close.iloc[-2] - df.close.iloc[-1]) / df.close.iloc[-1]) * 100).round(2)
             wal = Wallet.objects.get(id=2)
             btc = wal.btc
             cash = wal.wallet
+            print(pa, cash, btc)
             if pa >= 2:
-                if pa >= 5:
+                if pa >= 3:
                     if (btc - (100 / data.Close.iloc[-1])) >= 0:
                         amount = (100 / data.Close.iloc[-1])
                         btc -= amount
                         cash += 100
-                        wal = wal(wallet=cash, btc=btc)
-                        pur = Purchase(date=datetime.now(), currency_name="USD", currency_value=100, is_sold=False,
-                                       net_gain=amount)
-                        pur.save()
-                        wal.save()
-            elif pa <= -5:
+                        Wallet.objects.update(id=2,wallet=cash, btc=btc)
+                        print("purchased")
+            elif pa <= -3:
                 if cash >= 100:
                     cash -= 100
                     amount = (1 / data.Close.iloc[-1]) * 100
                     btc += amount
-                    pur = Purchase(date=datetime.now(), currency_name="BTC", currency_value=btc, is_sold=False,
-                                   net_gain=amount)
-                    wal = wal(wallet=cash, btc=btc)
-                    pur.save()
-                    wal.save()
+                    Wallet.objects.update(id=2,wallet=cash, btc=btc)
+                    print("sold")
+
             time.sleep(3600)
