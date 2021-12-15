@@ -613,14 +613,16 @@ def wallet(request):
     client = Client(api_key, api_secret, api_passphrase)
     currencies = client.get_currency('ETH')
     results = client.get_account('61b895307330e50001ca3d84')
-    print(results)
+    # print(results)
     accnts=client.get_accounts()
-    print(accnts)
-    context = {
-        "mydata": results
+    # print(accnts)
+    # context = {
+    #     "mydata": results
+    # }
+    context ={
+        'accnts': accnts
     }
-    return render(request, 'wallet.html', {'results':accnts})
-
+    return render(request, 'wallet.html', context)
 # def chart(low_time_frame_data=[], high_time_frame_data=[], selected_symbols="", selected_date_start="",
 #           selected_date_end=""):
 #     title = "Charts"

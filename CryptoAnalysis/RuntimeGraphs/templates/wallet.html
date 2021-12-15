@@ -117,7 +117,17 @@
 {% endblock%} {% endcomment %}
 
 <h4>Wallet holdings...</h4>
-{{results}}
+
+{% comment %} <div>User id: {{accnts}}</div> {% endcomment %}
+
+{%for i in accnts%}
+{%for k,v in i.items%}
+
+<p>{{k}}:{{v}}</p>
+
+
+{%endfor%}
+{%endfor%}
 
 
 
