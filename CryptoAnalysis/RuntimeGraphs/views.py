@@ -22,6 +22,7 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from pylab import rcParams
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import sqlite3
 # import business logic from services.py layer
 from .management.commands.services import getDateService, getDefaultData, getUserInputDateRange, outOfRange
@@ -30,6 +31,9 @@ import matplotlib.pyplot as plt_sal
 from datetime import date, timedelta
 from .models import Wallet
 import plotly.graph_objects as go
+import  plotly.figure_factory as ff
+import plotly.express as px
+from plotly.offline import plot
 import mpld3
 from matplotlib import pyplot as plt23
 import statsmodels.api as sm
@@ -43,11 +47,10 @@ from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import json
 import pprint
 import csv
+from io import BytesIO
+import base64
 
-
-# from binance import Client, helpers
-
-# CLIENT = Client(config.API_KEY, config.API_SECRET)
+from .utils import *
 import requests
 import json
 import atexit
@@ -138,7 +141,7 @@ class Index(TemplateView):
         # make connection to database and get runtimegraphs table into dataframe
         conn = sqlite3.connect("db.sqlite3")
         df = pd.read_sql_query(
-            "select * from RuntimeGraphs_cryptodataset;", conn)
+            "select * from RuntimeGraphs_btcdataset;", conn)
         # 1 year comprehensive analysis
         dd = df.copy()
         btc_year = wal.btc
@@ -330,13 +333,6 @@ Also, Never going to sell at a price lower than I bought.
 
         return context
 
-
-def about(request):
-    return render(request, 'about.html', {})
-
-
-def indexmain(request):
-    return render(request, 'index.html', {})
 
 
 def Main(request):
@@ -961,3 +957,217 @@ Also, Never going to sell at a price lower than I bought.
                 """
 
         return context
+
+
+
+
+
+
+# Naveed Code Start's from here Please don't edit in this section
+
+
+def indexmain(request):
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        t = form_data.get('coins', '')
+        p = '2y'
+        i = '1h'  
+        df = configdf(t,p,i)
+        start=str(request.POST.get('start',''))
+        end=str(request.POST.get('end',''))
+        print(start, end, type(start), type(end))
+        test = df.loc[start:end] 
+        print(test.shape) 
+        
+        
+        graphs = []
+        layouts = []
+
+        graphs.append(
+            go.Scatter(x=test.index, y=test['Close'], mode = 'lines')
+        )
+
+        layouts.append(
+            {
+        'title': 'Line Plot',
+        'xaxis_title': 'Date',
+        'yaxis_title': 'Close Price',
+        'height': 600,
+        'width': 800,
+        }
+
+        ) 
+
+        hourly_mean = test[['Close', 'Hour']].groupby(['Hour']).mean()
+
+        graphs.append(
+            go.Bar(x=hourly_mean.index.astype(str), y=hourly_mean['Close'])
+        )
+
+        layouts.append(
+            {
+        'title': 'Mean Prices for each hour of the day',
+        'xaxis_title': 'Hours',
+        'yaxis_title': 'Mean Price',
+        'height': 600,
+        'width': 800,
+        }
+        ) 
+
+        weekday_mean = test[['Close', 'Weekday']].groupby(['Weekday']).mean()
+        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        weekday_mean = weekday_mean.reindex(days)
+
+        graphs.append(
+            go.Bar(x=weekday_mean.index, y=weekday_mean['Close'])
+        )
+
+        layouts.append(
+            {
+        'title': 'Mean Prices for each day of the Week',
+        'xaxis_title': 'Day of Week',
+        'yaxis_title': 'Mean Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+        monthday_mean = test[['Close', 'Monthday']].groupby(['Monthday']).mean()
+
+        graphs.append(
+            go.Bar(x=monthday_mean.index.astype(str), y=monthday_mean['Close'])
+        )
+
+        layouts.append(
+            {
+        'title': 'Mean Prices for each day of the Month',
+        'xaxis_title': 'Day of Month',
+        'yaxis_title': 'Mean Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+        monthly_mean = test[['Close', 'Month']].groupby(['Month']).mean()
+        reorder = ['Jan', 'Feb', 'Mar','Apr', 'May', 'Jun','Jul','Aug','Sep','Oct', 'Nov','Dec']
+        monthly_mean = monthly_mean.reindex(reorder)
+
+        graphs.append(
+            go.Bar(x=monthly_mean.index, y=monthly_mean['Close'])
+        )
+
+        layouts.append(
+            {
+        'title': 'Mean Prices for each Month of the Year',
+        'xaxis_title': 'Months',
+        'yaxis_title': 'Mean Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+        yearly_mean = test[['Close', 'Year']].groupby(['Year']).mean()
+
+        graphs.append(
+            go.Bar(x=yearly_mean.index.astype(str), y=yearly_mean['Close'])
+        )
+
+        layouts.append(
+            {
+        'title': 'Mean Prices for each Year',
+        'xaxis_title': 'Years',
+        'yaxis_title': 'Mean Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+        data_7days = test.iloc[-168:]
+
+        graphs.append(
+            go.Candlestick(x=data_7days.index, open=data_7days['Open'],
+            high=data_7days['High'], low=data_7days['Low'],
+            close=data_7days['Close']     
+            )
+        )
+
+        layouts.append(
+            {
+        'title': 'Candlestick for recent 7-Days Data',
+        'xaxis_title': 'Dates',
+        'yaxis_title': 'Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+        data_24hrs = test.iloc[-24:]
+
+        graphs.append(
+            go.Candlestick(x=data_24hrs.index, open=data_24hrs['Open'],
+            high=data_24hrs['High'], low=data_24hrs['Low'],
+            close=data_24hrs['Close']     
+            )
+        )
+
+        layouts.append(
+            {
+        'title': 'Candlestick for recent 24-Hours Data',
+        'xaxis_title': 'Hours',
+        'yaxis_title': 'Price',
+        'height': 600,
+        'width': 800,
+        }
+        )
+
+
+        plot_div=[]
+        for g,l in zip(graphs,layouts):
+            plot_div.append(plot({'data': g, 'layout': l}, output_type='div'))
+        return render(request, 'index.html',{'plotdivs': plot_div, 'coin': t})
+    else:
+        return render(request, 'index.html', {})
+
+
+def compare(request):
+    inplots = []
+    # make connection to database and get runtimegraphs table into dataframe
+    conn = sqlite3.connect("db.sqlite3")
+    # fetching data from database
+    df_btc = pd.read_sql_query("select * from RuntimeGraphs_btcdataset;", conn, 
+            parse_dates=True, index_col='Date')
+    df_eth = pd.read_sql_query("select * from RuntimeGraphs_ethdataset;", conn, 
+            parse_dates=True, index_col='Date')
+    df_bnb = pd.read_sql_query("select * from RuntimeGraphs_bnbdataset;", conn, 
+            parse_dates=True, index_col='Date')
+    df_sol = pd.read_sql_query("select * from RuntimeGraphs_soldataset;", conn, 
+            parse_dates=True, index_col='Date')
+    
+    # getting Close column and its percentage change
+    btc = df_btc.Close.pct_change()
+    eth = df_eth.Close.pct_change()
+    bnb = df_bnb.Close.pct_change()
+    sol = df_sol.Close.pct_change()
+    # making a dataframe from multiple series
+    dfclose = pd.DataFrame({'BTC': btc, 'ETH': eth, 'BNB': bnb, 'SOL': sol})
+    corr_all = dfclose.corr()
+    mask = np.triu(np.ones_like(corr_all, dtype=np.bool))
+    heatmap_all = get_heatmap(corr_all, title="Percentage Change Correlation between Coins", mask=mask)
+    inplots.append(heatmap_all)
+    # corelation between BTC and other coins
+    ethr = btc.corr(eth)
+    bnbr = btc.corr(bnb)
+    solr = btc.corr(sol)
+    corr_with_btc = pd.Series(data=[ethr, bnbr, solr], index=['ETH', 'BNB', 'SOL'])
+    df_corr_with_btc = corr_with_btc.to_frame(name='BTC')
+    heatmap_btc = get_heatmap(df_corr_with_btc, title="Correlation of Other Coins With BTC")
+    inplots.append(heatmap_btc)
+    # bar plot
+    corr_with_btc.sort_values(ascending=False, inplace= True)
+    bars = get_barplot(x=corr_with_btc.index, y=corr_with_btc.values, 
+        title='Correlation Between BTC and Other Coins')
+    inplots.append(bars)
+    return render(request, 'comparison.html', {'iplots':inplots})
+
+
+        

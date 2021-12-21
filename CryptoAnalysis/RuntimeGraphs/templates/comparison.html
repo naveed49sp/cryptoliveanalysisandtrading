@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Cryptocurrencies Comparison</h1> <br><br>
+<div style="width:600;height:500">
+    {% if iplots %}
+    {% for plot in iplots%}
+        <img src="data:image/png;base64, {{plot | safe}}" alt="{{ plot }} Not found">
+        <br><br>
+    {% endfor %}
+    {% endif %}
+    <br><br>
+</div>
+
+
+
+<div class="container">
+    <form action="compare" method="Post" , name="form" , class="form">
+        {% csrf_token %}
+        <label for="coins">Choose a Coin:</label>
+        <select name="coins" id="coins" required>
+            <option value="BTC-USD">Bitcoin</option>
+            <option value="ETH-USD">Ethereum</option>
+            <option value="BNB-USD">Binance</option>
+            <option value="SOL-USD">Solana</option>
+        </select>
+        <br /><br />
+        <label for="start">Enter Start Date: </label>
+        <input type="date" name="start" id="start" required /><br /><br />
+        <label for="end">Enter End Date: </label>
+        <input type="date" name="end" id="end" required /><br /><br />
+        <input type="submit" value="Show Graph" /> <br /><br />
+    </form>
+    <script>
+        start.max = new Date().toISOString().split("T")[0];
+        end.max = new Date().toISOString().split("T")[0];
+        const d = new Date();
+        const pastYear = d.getFullYear() - 2;
+        d.setFullYear(pastYear);
+        d.setDate(d.getDate() + 1)
+        start.min = d.toISOString().split("T")[0];
+        end.min = d.toISOString().split("T")[0];
+    </script>
+</div>
+{% if plotdivs %}
+<h3>Analytical Plots {{ coin }}</h3>
+{% for plot in plotdivs %}
+<div class="one">
+    {{ plot|safe }}
+</div>
+{% endfor %}
+{% endif %}
+
+{% endblock %}

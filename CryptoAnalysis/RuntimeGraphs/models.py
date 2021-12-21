@@ -2,28 +2,51 @@ from django.db import models
 
 
 # Create your models here.
-class CryptoDataset(models.Model):
-    date = models.DateTimeField(primary_key=True)
-    open = models.FloatField()
-    low = models.FloatField()
-    close = models.FloatField()
-    high = models.FloatField()
-    volume = models.FloatField()
+class BTCDataset(models.Model):
+    Date = models.DateTimeField(primary_key=True)
+    Open = models.FloatField()
+    Low = models.FloatField()
+    Close = models.FloatField()
+    High = models.FloatField()
+    Volume = models.FloatField()
 
     def __str__(self):
-        return self.date
+        return self.Date
 
 
 class ETHDataset(models.Model):
-    date = models.DateTimeField(primary_key=True)
-    open = models.FloatField()
-    low = models.FloatField()
-    close = models.FloatField()
-    high = models.FloatField()
-    volume = models.FloatField()
+    Date = models.DateTimeField(primary_key=True)
+    Open = models.FloatField()
+    Low = models.FloatField()
+    Close = models.FloatField()
+    High = models.FloatField()
+    Volume = models.FloatField()
 
     def __str__(self):
-        return self.date
+        return self.Date
+
+class BNBDataset(models.Model):
+    Date = models.DateTimeField(primary_key=True)
+    Open = models.FloatField()
+    Low = models.FloatField()
+    Close = models.FloatField()
+    High = models.FloatField()
+    Volume = models.FloatField()
+
+    def __str__(self):
+        return self.Date
+
+
+class SOLDataset(models.Model):
+    Date = models.DateTimeField(primary_key=True)
+    Open = models.FloatField()
+    Low = models.FloatField()
+    Close = models.FloatField()
+    High = models.FloatField()
+    Volume = models.FloatField()
+
+    def __str__(self):
+        return self.Date
 
 class Wallet(models.Model):
     username = models.CharField(default='user1', max_length=255)

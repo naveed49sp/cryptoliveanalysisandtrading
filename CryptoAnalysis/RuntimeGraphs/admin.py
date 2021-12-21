@@ -1,12 +1,12 @@
 from django.contrib import admin
-from .models import CryptoDataset, ETHDataset, Wallet, Purchase
+from .models import BTCDataset, ETHDataset, BNBDataset, SOLDataset, Wallet, Purchase
 
 
 class DatasetAdmin(admin.ModelAdmin):
-    list_display = ('date', 'open', 'high', 'low', 'close', 'volume')
+    list_display = ('Date', 'Open', 'High', 'Low', 'Close', 'Volume')
 
 
-admin.site.register(CryptoDataset)
+admin.site.register(BTCDataset)
 
 
 class WalletAdmin(admin.ModelAdmin):

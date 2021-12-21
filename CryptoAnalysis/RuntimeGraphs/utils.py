@@ -1,7 +1,12 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
+import yfinance as yf
 import base64
 from io import BytesIO
-import plotly.graph_objects as go
+
 
 
 def get_graph():
@@ -14,6 +19,39 @@ def get_graph():
     buffer.close()
     return graph
 
+def get_heatmap(rr, title="Correlation Heat Map", mask=None):
+    plt.switch_backend('AGG')
+    plt.figure(figsize=(10, 5))
+    plt.title(title, fontsize=20)
+    sns.heatmap(rr, annot=True, mask=mask)
+    plt.xticks(rotation=45, fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.tight_layout()
+    graph = get_graph()
+    return graph
+
+def get_barplot(x,y, title="Bar Plot"):
+    plt.switch_backend('AGG')
+    plt.figure(figsize=(10,5))
+    plt.title(title, fontsize=20)
+    sns.barplot(x=x, y=y, palette='coolwarm')
+    plt.xticks(rotation=45, fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.tight_layout()
+    graph = get_graph()
+    return graph
+
+
+def configdf(t='BTC-USD', p='2y', i='1h'):
+    df = yf.download(tickers= t, period = p, interval= i, parse_dates=True)
+    df['Date'] = df.index.date.astype(str)
+    df['Time'] = df.index.time.astype(str)
+    df['Year'] = pd.DatetimeIndex(df.index.date).year
+    df['Month'] = df.index.strftime('%b') #Name of month abbreviated
+    df['Monthday'] = pd.DatetimeIndex(df.index.date).day
+    df['Weekday'] = df.index.strftime('%a') #weekday abbreviated
+    df['Hour'] = pd.DatetimeIndex(df.index).hour
+    return df
 
 def get_plot(x, y, title, xlabel, ylabel, scatter=None, x_sca=None, y_sca=None):
     plt.switch_backend('AGG')
