@@ -23,7 +23,15 @@
             <option value="BTC-USD">Bitcoin</option>
             <option value="ETH-USD">Ethereum</option>
             <option value="BNB-USD">Binance</option>
-            <option value="SOL-USD">Solana</option>
+            <option value="SOL1-USD">Solana</option>
+        </select>
+        <br /><br />
+        <label for="comparewith">Compare With:</label>
+        <select name="comparewith" id="comparewith" required>
+            <option value="BTC-USD">Bitcoin</option>
+            <option value="ETH-USD">Ethereum</option>
+            <option value="BNB-USD">Binance</option>
+            <option value="SOL1-USD">Solana</option>
         </select>
         <br /><br />
         <label for="start">Enter Start Date: </label>
@@ -43,13 +51,13 @@
         end.min = d.toISOString().split("T")[0];
     </script>
 </div>
-{% if plotdivs %}
-<h3>Analytical Plots {{ coin }}</h3>
-{% for plot in plotdivs %}
+{% if plotdiv %}
+<h3> Comparison Between {{ coin1 }} and {{ coin2 }}</h3>
+
 <div class="one">
-    {{ plot|safe }}
+    {{ plotdiv|safe }}
 </div>
-{% endfor %}
+
 {% endif %}
 
 {% endblock %}

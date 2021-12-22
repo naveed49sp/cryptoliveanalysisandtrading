@@ -41,6 +41,28 @@ def get_barplot(x,y, title="Bar Plot"):
     graph = get_graph()
     return graph
 
+def buy_sell(df, coin=1.0, amount=10000):
+    df['pctchange'] = df['Close'].pct_change()*100 
+    buy = []
+    sell = []
+    amount=amount
+    coin = coin
+    for r in df.itertuples():
+        if r.pctchange <= -3.0 and amount>0:
+            amount -= 100      # buy coin   
+            coin += 100/r.Close
+            buy.append(r.Close)
+            sell.append(np.nan)
+        elif r.pctchange >= 5.0 and coin>0: 
+            amount += 100          #sell coin
+            coin -= 100/r.Close
+            sell.append(r.Close)
+            buy.append(np.nan)
+        else:
+            sell.append(np.nan)
+            buy.append(np.nan)
+    return buy, sell, amount, coin
+
 
 def configdf(t='BTC-USD', p='2y', i='1h'):
     df = yf.download(tickers= t, period = p, interval= i, parse_dates=True)

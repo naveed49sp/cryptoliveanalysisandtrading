@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block content %} 
+
+<h2>Trading Description</h2>
+
+<p>Suppose we have one coin (say BTC/ETH) and $10000 in the wallet <br></p>
+<ul>
+    <li>When price increases 5% we sell coin of worth $100</li>
+    <li>When price decreases 3% we buy coin of worth $100</li>
+</ul>
+<p>Suppose a user invests before 1 year <br>
+    After one year trade user's wallet holding's will be as below: <br><br>
+</p>
+<div>
+    <form action="trade" method="Post" , name="form" , class="form">
+        {% csrf_token %}
+        <label for="coins">Choose a Coin:  </label>
+        <select name="coins" id="coins" required>
+            <option value="BTC-USD">Bitcoin</option>
+            <option value="ETH-USD">Ethereum</option>
+            <option value="BNB-USD">Binance</option>
+            <option value="SOL1-USD">Solana</option>
+        </select>
+        <br /><br />      
+        <label for="start">Enter Start Date: </label>
+        <input type="date" name="start" id="start" required /><br /><br />
+        <input type="submit" value="Show Holdings" /> <br /><br />
+    </form>
+    <script>
+        start.max = new Date().toISOString().split("T")[0];
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - 1);
+        d.setDate(d.getDate() + 1)
+        start.min = d.toISOString().split("T")[0];
+    </script>
+</div>
+
+
+
+<h3>Wallet Holdings</h3>
+
+{% if wallet %}
+<div>
+    <span>Cash Initial: $10000</span><br>
+    <span>{{ wallet.ticker }} Initial: 1</span><br>
+    <span>Trading Start Date: {{ wallet.date }}</span><br><br>
+    <h4>After Trading</h4>
+    <span>Wallet Price: </span> {{ wallet.amount }} <br>
+    <span>{{ wallet.ticker }} : {{ wallet.coin }}</span> <br>
+</div>
+{% endif %}
+
+
+{% if plotdiv %}
+<h3> {{ wallet.ticker }} Trading Plot from {{ wallet.date }}</h3>
+<div class="one">
+    {{ plotdiv|safe }}
+</div>
+{% endif %}
+{% endblock %}

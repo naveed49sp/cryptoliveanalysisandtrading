@@ -1167,7 +1167,81 @@ def compare(request):
     bars = get_barplot(x=corr_with_btc.index, y=corr_with_btc.values, 
         title='Correlation Between BTC and Other Coins')
     inplots.append(bars)
-    return render(request, 'comparison.html', {'iplots':inplots})
 
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        t1 = form_data.get('coins', '')
+        t2 = form_data.get('comparewith', '')
+        p = '2y'
+        i = '1h'  
+        df1 = configdf(t1,p,i)
+        df2 = configdf(t2,p,i)
+        start=str(request.POST.get('start',''))
+        end=str(request.POST.get('end',''))
+        print(start, end, type(start), type(end))
+        test1 = df1.loc[start:end] 
+        test2 = df2.loc[start:end] 
+        print(test1.shape) 
+        
+        
+        graphs = []
 
+        graphs.append(
+            go.Scatter(x=test1.index, y=test1['Close'], mode = 'lines', name = t1)
+        )
+
+        graphs.append(
+            go.Scatter(x=test2.index, y=test2['Close'], mode = 'lines', name = t2)
+        )
+
+        # layout for the figure
+        layout = {
+        'title': 'Comparison',
+        'xaxis_title': 'Date',
+        'yaxis_title': 'Close Price',
+        'height': 600,
+        'width': 800,
+        }
+
+        plot_div=plot({'data': graphs, 'layout': layout}, output_type='div')
+    
+        return render(request, 'comparison.html', {'plotdiv': plot_div, 'iplots':inplots, 'coin1': t1, 'coin2': t2})
+    else:
+        return render(request, 'comparison.html', {'iplots':inplots})
+
+def trade(request):
+    if request.method == 'POST':
+        form_data = request.POST.dict()
+        t = form_data.get('coins', '')
+        p = '1y'
+        i = '1h'  
+        df = yf.download(tickers=t, period=p, interval=i, parse_dates=True)
+        start=str(request.POST.get('start',''))
+        test = df.loc[start:]
+        buy, sell, amount, coin = buy_sell(test, coin=1, amount=10000)
+        wallet = {'amount': amount, 'coin': coin, 'date': start, 'ticker' : t}
+        graphs = []
+        print('Buy', len(buy), len(sell), len(test.index))
+        graphs.append(
+            go.Scatter(x=test.index, y=test['Close'], mode = 'lines', name='Close Price')
+        )
+        graphs.append(
+            go.Scatter(x=test.index, y=buy, mode = 'markers', marker_symbol = 'square', name='Buy' )
+        )
+        graphs.append(
+            go.Scatter(x=test.index, y=sell, mode = 'markers', marker_symbol = 'x', name='Sell' )
+        )
+
+        layout ={
+        'title': 'Trading',
+        'xaxis_title': 'Date',
+        'yaxis_title': 'Close Price',
+        'height': 600,
+        'width': 800,
+        }
+
+        plot_div = plot({'data': graphs, 'layout': layout}, output_type='div')
+        return render(request, 'trade_strategy.html', {'plotdiv': plot_div, 'wallet': wallet})
+    else:
+        return render(request, 'trade_strategy.html')
         
