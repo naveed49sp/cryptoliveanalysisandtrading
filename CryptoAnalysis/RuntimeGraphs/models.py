@@ -70,10 +70,11 @@ class Purchase(models.Model):
         return self.currency_name
     
     
-# class Employee(models.Model):  
-#     eid = models.CharField(max_length=20)  
-#     ename = models.CharField(max_length=100)  
-#     eemail = models.EmailField()  
-#     econtact = models.CharField(max_length=15)  
-#     class Meta:  
-#         db_table = "employee" 
+class Myuser(models.Model):
+    username = models.CharField(max_length=50)
+    password = models.CharField('user password', max_length=50)
+    cash = models.IntegerField(default=0)
+    coins = models.FloatField(default=0.0)
+    image = models.ImageField(upload_to='images', default='images/default.jpg')
+# How to get imagefield url please visit
+# https://stackoverflow.com/a/42755324/11218305

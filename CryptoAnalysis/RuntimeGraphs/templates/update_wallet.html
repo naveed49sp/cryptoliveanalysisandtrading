@@ -1,0 +1,20 @@
+{% extends 'base_main.html' %}
+{% block head%}Update{%endblock%}
+{% block body%}
+<div class="content">
+    <h1 style="text-align: center">Update Wallet</h1>
+    <div class="form">
+        <form action="/update/{{us.id}}" method="post">
+            {% csrf_token %}
+            <label for="name">Name: </label><br>
+            <input type="text" name="name" value="{{us.username}}" id="name"><br>
+            <label for="cash">Cash: </label><br>
+            <input type="text" name="cash" value="{{us.cash}}" id="cash"><br>
+            <label for="coin"> Coin Quantity</label><br>
+            <input type="text" name="coin" value="{{us.coins}}" id="coin"><br>
+            <input type="submit" value="Update Values"><br>
+        </form>
+        
+    </div>
+</div>
+{%endblock%}

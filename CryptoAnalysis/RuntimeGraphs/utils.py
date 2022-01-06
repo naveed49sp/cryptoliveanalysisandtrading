@@ -89,3 +89,51 @@ def get_plot(x, y, title, xlabel, ylabel, scatter=None, x_sca=None, y_sca=None):
     graph = get_graph()
     return graph
 
+def is_support(df, i):
+    support = df['low'][i] < df['low'][i - 1] < df['low'][i - 2] and df['low'][i] < df['low'][i + 1] < df['low'][
+        i + 2]
+    return support
+
+
+def is_resistance(df, i):
+    resistance = df['high'][i] > df['high'][i - 1] > df['high'][i - 2] and df['high'][i] > df['high'][i + 1] > \
+        df['high'][i + 2]
+    return resistance
+
+
+def SMA(data, period=24, column='close'):
+    return data[column].rolling(window=period).mean()
+
+
+def SMA2(data, period=24, column='Close'):
+    return data[column].rolling(window=period).mean()
+
+
+
+def strategy(df):
+    buy = []
+    sell = []
+    flag = 0
+    buy_price = 0
+
+    for i in range(0, len(df)):
+        if df['SMA24'][i] > df['Close'][i] and flag == 0:
+            buy.append(df['Close'][i])
+            sell.append(np.nan)
+            buy_price = df['Close'][i]
+            flag = 1
+        elif df['SMA24'][i] < df['Close'][i] and flag == 1 and buy_price < df['Close'][i]:
+            sell.append(df['Close'][i])
+            buy.append(np.nan)
+            buy_price = 0
+            flag = 0
+        else:
+            sell.append(np.nan)
+            buy.append(np.nan)
+    return buy, sell
+
+
+
+
+
+

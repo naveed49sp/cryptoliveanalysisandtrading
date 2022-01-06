@@ -3,7 +3,7 @@ from datetime import date, timedelta , datetime
 from ...forms import PriceSearchForm
 
 #function to get the current and today-10days dates respectively
-class getDateService():
+class getDateService:
     def getCurrentDateView(self):
         datetime_today = date.today() #get current date
         date_today = str(datetime_today) #convert datetime class to string
@@ -16,14 +16,14 @@ class getDateService():
         return date_from,date_to
 
 #function to make the api get call and retrieve the default 10days api data.
-class getDefaultData():
+class getDefaultData:
     def makeDefaultApiView(self, date_from, date_to):
         PriceFormSearch = initialData(date_from, date_to) #call the initial data function and append the values to the search form
         search_form_default= PriceFormSearch #when the page reloads, set the default form date input values to the dates picked by the user
 
         return search_form_default
 
-class getUserInputDateRange():
+class getUserInputDateRange:
     def userFormInputView(self, date_from, date_to, date_today):
         if date_to > date_today:   #if the date to from input is greater than today's date; there wont be data for the extra days, so we change the 'date_to' input back to todays's date
             date_to = date_today
@@ -31,7 +31,7 @@ class getUserInputDateRange():
         search_form_current= PriceFormSearch  #when the page reloads, set the default form date input values to the dates picked by the user
 
         return  search_form_current
-class outOfRange():
+class outOfRange:
     def ooR(self, date_from, date_to, range_error):
         from_date= datetime.strptime(date_from, '%Y-%m-%d').date()
         to_date= datetime.strptime(date_to, '%Y-%m-%d').date()

@@ -1,0 +1,44 @@
+{% extends 'base2.html' %}
+
+{% block content %}
+
+
+{% if error %}
+{{ error }}
+
+<br />
+<br />
+{% endif %}
+
+<div class="limiter">
+    <div class="container-login100">
+        <div class="wrap-login100">
+            <div class="login100-pic js-tilt" data-tilt>
+                <img src="static\images\img-01.png" alt="IMG" />
+            </div>
+
+           {% block body %}
+           {% endblock  %}
+        </div>
+    </div>
+</div>
+
+<!--===============================================================================================-->
+<script src="static/vendor/jquery/jquery-3.2.1.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/bootstrap/js/popper.js"></script>
+<script src="static/vendor/bootstrap/js/bootstrap.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/select2/select2.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/tilt/tilt.jquery.min.js"></script>
+<script>
+    $(".js-tilt").tilt({
+        scale: 1.1,
+    });
+</script>
+<!--===============================================================================================-->
+<script src="static\js\main.js"></script>
+
+
+{% endblock %}

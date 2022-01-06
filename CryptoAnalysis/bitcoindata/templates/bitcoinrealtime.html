@@ -1,5 +1,4 @@
-{% comment %} {% extends 'base.html' %} {% endcomment %}
-{% comment %} {% block content %} {% endcomment %}
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -16,7 +15,7 @@
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-        <a class="navbar-brand" >Crypto Analysis</a>
+        <a class="navbar-brand" href="/" >Crypto Analysis</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
                 aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -25,16 +24,14 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             
                 <li class="nav-item">
-                    <a class="nav-link" href="/logout">Logout</a>
+                    <a class="nav-link" href="/bitcoinlive">Back</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/main">Home</a>
+                    <a class="nav-link" href="/">Home</a>
                 </li>
                
         
-                 {% comment %} <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="{% url 'home' %}">Home</a>
-                </li>  {% endcomment %}
+            </ul>
                 
              
              
@@ -69,8 +66,8 @@
 <body>
 <section class="section">
     <div class="container">
-        <h1 class="title">Welcome to <strong>Crypto</strong>LiveChart!</h1>
-        <p class="subtitle">View live prices for <strong>Bitcoin</strong> in real time!</p>
+        <h1 class="title"><strong>Crypto Auto Trading </strong>LiveChart!</h1>
+        <p class="subtitle"> <strong> Trade on live prices for Bitcoin </strong> in real time!</p>
         <hr>
         <div class="columns">
             <div class="column">
@@ -79,12 +76,7 @@
                     Graph
                 </div>
             </div>
-            <div class="column">
-                {% comment %} <h5 class="title is-6">Market Cap</h5> {% endcomment %}
-                <div id="market_cap_chart" class="chart">
-                    Bar Chart
-                </div>
-            </div>
+            
         </div>
     </div>
 </section>

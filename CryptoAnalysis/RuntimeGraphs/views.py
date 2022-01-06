@@ -5,11 +5,10 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth import login, authenticate
 from django.http import request
-from .forms import NewUserForm
-from .forms import PriceSearchForm
 from RuntimeGraphs.models import Wallet
 from datetime import datetime
 from django.shortcuts import render, redirect
+from .forms import PriceSearchForm
 # from django import flash
 # from django import requests
 import yfinance as yf
@@ -49,7 +48,8 @@ import pprint
 import csv
 from io import BytesIO
 import base64
-
+from FaceRecognition.live_face_rec import RealTimeRecognition
+from django.http.response import StreamingHttpResponse
 from .utils import *
 import requests
 import json
@@ -57,294 +57,18 @@ import atexit
 import time
 import plotly
 import plotly.graph_objs as go
+from .models import Myuser
 plt_sal.style.use('fivethirtyeight')
 
 
-def is_support(df, i):
-    support = df['low'][i] < df['low'][i - 1] < df['low'][i - 2] and df['low'][i] < df['low'][i + 1] < df['low'][
-        i + 2]
-    return support
 
 
-def is_resistance(df, i):
-    resistance = df['high'][i] > df['high'][i - 1] > df['high'][i - 2] and df['high'][i] > df['high'][i + 1] > \
-        df['high'][i + 2]
-    return resistance
-
-
-def SMA(data, period=24, column='close'):
-    return data[column].rolling(window=period).mean()
-
-
-def SMA2(data, period=24, column='Close'):
-    return data[column].rolling(window=period).mean()
-
-
-def strategy(df):
-    buy = []
-    sell = []
-    flag = 0
-    buy_price = 0
-
-    for i in range(0, len(df)):
-        if df['SMA24'][i] > df['close'][i] and flag == 0:
-            buy.append(df['close'][i])
-            sell.append(np.nan)
-            buy_price = df['close'][i]
-            flag = 1
-        elif df['SMA24'][i] < df['close'][i] and flag == 1 and buy_price < df['close'][i]:
-            sell.append(df['close'][i])
-            buy.append(np.nan)
-            buy_price = 0
-            flag = 0
-        else:
-            sell.append(np.nan)
-            buy.append(np.nan)
-    return buy, sell
-
-
-def strategy2(df):
-    buy = []
-    sell = []
-    flag = 0
-    buy_price = 0
-
-    for i in range(0, len(df)):
-        if df['SMA24'][i] > df['Close'][i] and flag == 0:
-            buy.append(df['Close'][i])
-            sell.append(np.nan)
-            buy_price = df['Close'][i]
-            flag = 1
-        elif df['SMA24'][i] < df['Close'][i] and flag == 1 and buy_price < df['Close'][i]:
-            sell.append(df['Close'][i])
-            buy.append(np.nan)
-            buy_price = 0
-            flag = 0
-        else:
-            sell.append(np.nan)
-            buy.append(np.nan)
-    return buy, sell
-
-
-class Index(TemplateView):
-    template_name = 'bitcoin.html'
-
-    def get_context_data(self, **kwargs):
-        # initiate context
-        context = super().get_context_data(**kwargs)
-        chart = []
-        # get variable from Wallet
-        Wallet.objects.all()
-        wal = Wallet.objects.get(id=2)
-        context['wallet'] = wal.wallet
-
-        # make connection to database and get runtimegraphs table into dataframe
-        conn = sqlite3.connect("db.sqlite3")
-        df = pd.read_sql_query(
-            "select * from RuntimeGraphs_btcdataset;", conn)
-        # 1 year comprehensive analysis
-        dd = df.copy()
-        btc_year = wal.btc
-        cash_year = wal.wallet
-        df_date = df.copy()
-        df_sal = df.copy()
-        times = pd.date_range(end=datetime.now(), freq="H", periods=8760)
-        df_wl = df.copy()
-        # df_wl = df_wl.sort_index()
-        df_wl['Date'] = pd.to_datetime(df_wl['date']).dt.date
-        df_wl['Time'] = pd.to_datetime(df_wl['date']).dt.time
-        # df_wl = df_wl.sort_index()
-        df_wl['Date'] = df_wl['Date'].astype(str)
-        context['previous_btc_val'] = (df_wl[df_wl['Date'] == str(
-            times[0].date())].iloc[0].close * btc_year).round(2)
-        for dat in times:
-            value = df_wl[df_wl['Date'] == str(dat.date())]
-            for i in range(0, len(value) - 1):
-                PA = (
-                    (value.close.iloc[i] - value.close.iloc[i + 1]) / value.close.iloc[i + 1]) * 100
-                if PA >= 5:
-                    if btc_year >= 0:
-                        amount = (100 / value.close.iloc[i])
-                        btc_year -= amount
-                        cash_year += 100
-                elif PA <= -5:
-                    if cash_year >= 100:
-                        cash_year -= 100
-                        btc_year += (1 / value.close.iloc[i]) * 100
-        context['now_btc_val'] = (df.close.iloc[-1] * btc_year).round(2)
-        pa = (((df.close.iloc[-2] - df.close.iloc[-1]) /
-              df.close.iloc[-1]) * 100).round(2)
-        signal = ''
-        btc = wal.btc
-        cash = wal.wallet
-        while 1:
-            if pa >= 2:
-                if pa >= 5:
-                    if btc >= 0:
-                        signal += 'Sold btc'
-                else:
-                    signal += 'Sell coin now!'
-            elif pa <= -5:
-                if cash >= 100:
-                    signal += 'Coin is purchased'
-            else:
-                signal += 'do nothing'
-            break
-        # variable to display on the webpage
-        context['pa'] = pa
-        context['signal'] = signal
-        context['starting'] = times[0]
-        context['ending'] = times[-1]
-        context['btc_year'] = btc_year
-        context['cash_year'] = cash_year
-        context['cash_start'] = wal.wallet
-        context['btc_start'] = wal.btc
-
-        # plot monthly graph
-        df['Date'] = pd.to_datetime(df['date']).dt.date
-        df['Time'] = pd.to_datetime(df['date']).dt.time
-        layout = go.Layout(title="1 Month Bitcoin Data", xaxis={
-                           'title': 'Date'}, yaxis={'title': 'Close'})
-        fig = go.Figure(data=[go.Candlestick(x=df.date.iloc[-720:],
-                                             open=df['open'],
-                                             high=df['high'],
-                                             low=df['low'],
-                                             close=df['close'])], layout=layout)
-        context['graph_message_1'] = ''
-        context['graph_1'] = fig.to_html()
-        # plot graph on hourly basis
-        value = df.iloc[-24:]
-        dfpl = value.copy()
-        fig = go.Figure()
-        fig.update_layout(title="24 Hours Bitcoin Data",
-                          xaxis_title='Date', yaxis_title='Close')
-        fig.add_trace(go.Candlestick(x=dfpl['Time'],
-                                     open=dfpl.open,
-                                     high=dfpl.high,
-                                     low=dfpl.low,
-                                     close=dfpl.close))
-        context['graph_message_2'] = ''
-        context['graph_2'] = fig.to_html()
-        # 2020 and 2021 difference
-        df_date['date'] = pd.to_datetime(df_date['date'])
-        df_date.set_index('date', drop=True, inplace=True)
-        m2021 = df_date.loc['2021', 'close'].resample('M').mean().values
-        m2020 = df_date.loc['2020', 'close'].resample('M').mean().values
-        fig = plt.figure(figsize=(6.5, 2), dpi=180)
-        plt.plot(m2021, label='2021')
-        plt.plot(m2020, label='2020')
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June',
-                  'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        plt.xticks(np.arange(0, 12), labels=months, rotation=75)
-        plt.legend(loc=0)
-        plt.grid(True, alpha=0.1)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_3'] = html_str
-        context['graph_message_3'] = '''
-        The above graph shows the average of monthly price for 2020 and 2021. Follwoing are major insights from the graph
-
-- There is a stron up trend from Oct-2020 to Apr-2021
-
-- From Apr to July there is fall in prices
-
-- For both of the years there is up-trend.
-
-Let's dig into the details from Apr to July 2021'''
-
-        aprtojul = df_date.loc['2021-4-1':'2021-7-31',
-                               'close'].resample('W').mean()
-        fig = plt.figure(figsize=(6, 2), dpi=200)
-        plt.plot(aprtojul)
-        plt.xticks(rotation=75)
-        plt.grid(True, alpha=0.1)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_4'] = html_str
-        context['graph_message_4'] = """
-        Conclusions are:
-
-- There is a small uptrend from third week of april to second week of May
-
-- From 7th of May to 15th of June there is a strong down-trend
-        """
-        context["graph_message_5_upper"] = """
-        Since its a Hourly time series and may follows a certain repetitive pattern every day, we can plot each day as a separate line in the same plot. This lets you compare the day wise patterns side-by-side. Seasonal Plot of a Time Series
-
-"""
-        df_date['year'] = [d.year for d in df_date.index]
-        df_date['month'] = [d.strftime('%b') for d in df_date.index]
-        fig = plt.figure(figsize=(4, 2), dpi=300)
-        ax1 = plt.plot(df_date.loc[df_date.year == 2020, 'month'], df_date.loc[df_date.year == 2020, 'close'],
-                       label='2020')
-        ax2 = plt.plot(df_date.loc[df_date.year == 2021, 'month'], df_date.loc[df_date.year == 2021, 'close'],
-                       label='2021')
-        plt.grid(True, alpha=0.2)
-        plt.legend()
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_5'] = html_str
-        context['graph_message_5'] = """
-        Conclusions are:
-
-- There is huge fluctuation in 2021 compare to 2020
-
-- Oct, May and Feb are high fluctuated months
-        """
-
-        df_sal['date'] = pd.to_datetime(df_sal['date'])
-        df_sal.set_index('date', drop=True, inplace=True)
-        df_sal = df_sal.tail(168)
-        df_sal['SMA24'] = SMA(df_sal)
-        # Get the buy and sell list
-        strat = strategy(df_sal)
-        df_sal['Buy'] = strat[0]
-        df_sal['Sell'] = strat[1]
-
-        # Visualize the close price and the buy and sell signals
-        fig = plt_sal.figure(figsize=(10.5, 4))
-        plt_sal.title('Bitcoin Close Price and MA with Buy and Sell Signals')
-        plt_sal.plot(df_sal['close'], alpha=0.5,
-                     label='Close Price Last 7 days')
-        plt_sal.plot(df_sal['SMA24'], alpha=0.5, label='Simple Moving Avg')
-        plt_sal.scatter(
-            df_sal.index, df_sal['Buy'], color='green', label='Buy Signal', alpha=1)
-        plt_sal.scatter(
-            df_sal.index, df_sal['Sell'], color='red', label='Sell Signal', alpha=1)
-        plt_sal.xlabel('Date')
-        plt_sal.ylabel('Close Price in USD')
-        plt_sal.legend(loc=3)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_6'] = html_str
-        context['graph_message_6'] = """
-The graph above shows the relationship between the date and the close price of Bitcoin in USD.
-
-The blue line trend represents the closing price of Bitcoin over the last seven days, while the red line trend represents the moving averages over one day. 
-
-There are also Buy and Sell Signals on this graph.
-
-Buy = green :-
-
-  Buy the Bitcoin when SMA of 1 day goes below the close price 
-
-Sell = Red :-
-
-  Sell When the 1 day SMA goes above the close price
-
-Also, Never going to sell at a price lower than I bought.
-                """
-
-        return context
-
-
-
-def Main(request):
-    return render(request, 'main.html', {})
+    
 
 
 def bitcoin(request):
     return render(request, 'bitcoin.html', {})
 
-
-# def ethereum(request):
-#     return render(request, 'ethereum.html', {})
 
 def ada(request):
     return render(request, 'ada.html', {})
@@ -358,40 +82,65 @@ def show(request):
     wallets = Wallet.objects.all()
     return render(request, "main.html", {'wallet': wallets})
 
-
-def signup(request):
+def signup2(request):
     if request.method == "POST":
         if request.POST['password1'] == request.POST['password2']:
-            try:
-                User.objects.get(username=request.POST['username'])
+            uname = request.POST['username']
+            passwd = request.POST['password1']
+            count = Myuser.objects.filter(username=uname).count()
+            if count > 0:
                 return render(request, 'register.html', {'error': 'Username is already taken!'})
-            except User.DoesNotExist:
-                user = User.objects.create_user(
-                    request.POST['username'], password=request.POST['password1'])
-                auth.login(request, user)
+            else:
+                user = Myuser(username = uname, password = passwd, cash = 0, coins=0.0)
+                user.save()
                 return redirect('login')
         else:
             return render(request, 'register.html', {'error': 'Password does not match!'})
     else:
         return render(request, 'register.html')
 
+def main(request,id):
+    if request.session.has_key('is_logged'):
+        try:
+            user = Myuser.objects.get(id=id)
+        except:
+            return redirect('login')
+        return render(request, 'main.html', context={'us':user})
+    else:
+        return redirect('login')
 
 def login(request):
     if request.method == 'POST':
-        user = auth.authenticate(
-            username=request.POST['username'], password=request.POST['password'])
-        if user is not None:
-            auth.login(request, user)
-            return redirect('/main')
+        uname = request.POST['username']
+        passwd = request.POST['password']
+        user = Myuser.objects.filter(username = uname, password=passwd)
+        if user.count()>0:
+            request.session['is_logged'] = True
+            temp = 'main/'+str(user.first().id)
+            return redirect(temp)
+            # return render(request, 'main.html', context={'us': user.first()})
         else:
             return render(request, 'login.html', {'error': 'Username or password is incorrect!'})
     else:
         return render(request, 'login.html')
 
+def update(request,id):
+    if request.session.has_key('is_logged'):
+        user = Myuser.objects.filter(id = id)
+        if request.method == 'POST':
+            uname = request.POST['name']
+            csh = request.POST['cash']
+            coin = request.POST['coin']
+            user.update(username=uname, cash=csh, coins=coin )
+            temp = '/main/'+str(user.first().id)
+            return redirect(temp)
+        else:
+            return render(request, 'update_wallet.html', context={'us': user.first()})
+    else:
+        return redirect('login')
 
 def logout(request):
-    if request.method == 'POST':
-        auth.logout(request)
+    del request.session['is_logged']
     return redirect('/')
 
 
@@ -401,16 +150,18 @@ def chart(request):
     range_error = None
 
     # assign the functions imported from services.py to variables to allow for easier use
-    initiateDateGet = getDateService()
-    initiateDefaultDataGet = getDefaultData()
+    initiateDateGet = getDateService() # it is a class and we are creating an object of it
+    date_from, date_to = initiateDateGet.getCurrentDateView()  # get the dates for present day and present day - 10 days
+
+    initiateDefaultDataGet = getDefaultData() # it is a class and we are creating an object of it
+    search_form = initiateDefaultDataGet.makeDefaultApiView(date_from, date_to) # use the 10days period obtained from the function above to set the default form values
+    
     initiateUserDateGet = getUserInputDateRange()
     initiateRangeErrorGet = outOfRange()
 
-    # get the dates for present day and present day - 10 days
-    date_from, date_to = initiateDateGet.getCurrentDateView()
+    
 
-    # use the 10days period obtained from the function above to set the default form values
-    search_form = initiateDefaultDataGet.makeDefaultApiView(date_from, date_to)
+    
 
     # use the 10days period obtained from the function above to get dafualt 10days data
     bitcoin_price = getBitcoinData(date_from, date_to)
@@ -619,351 +370,18 @@ def wallet(request):
         'accnts': accnts
     }
     return render(request, 'wallet.html', context)
-# def chart(low_time_frame_data=[], high_time_frame_data=[], selected_symbols="", selected_date_start="",
-#           selected_date_end=""):
-#     title = "Charts"
-#     symbols = get_data.get_symbols()
-#     low_time_frame_data = low_time_frame_data
-#     high_time_frame_data = high_time_frame_data
-#     selected_symbols = selected_symbols
-#     selected_date_start = selected_date_start
-#     selected_date_end = selected_date_end
-#     return render("chart_form.html", title=title, symbols=symbols,
-#                            low_time_frame_data=low_time_frame_data, high_time_frame_data=high_time_frame_data,
-#                            selected_symbols=selected_symbols, selected_date_start=selected_date_start,
-#                            selected_date_end=selected_date_end)
-
-
-# def plot():
-#     try:
-
-#         low_time_frame_data = []
-#         high_time_frame_data = []
-
-#         # data returns a list with objects then is turn to json with js on frontend
-#         if len(request.form["date_start"]) != 0 and len(request.form["date_end"]) != 0:
-#             low_time_frame_data = get_data.get_low_time_frame_data(request.form["symbols"], request.form["date_start"],
-#                                                                    request.form["date_end"])
-#             high_time_frame_data = get_data.get_high_time_frame_data(request.form["symbols"],
-#                                                                      request.form["date_start"],
-#                                                                      request.form["date_end"])
-#             messages("Form data submitted", "Success")
-#         else:
-#             messages("Please enter data in all fields", "Success")
-#     except Exception as e:
-#         # If message attribute is not found, then e is an object that is not json serializable
-#         # so convert to string to read.
-#         messages(e.message if hasattr(e, 'message') else str(e), "Error")
-
-#     return chart(low_time_frame_data, high_time_frame_data, request.form["symbols"], request.form["date_start"],
-#                  request.form["date_end"])
-
-
-# def csv_report():
-#     title = "CSV Reports"
-#     return render("csv.html", title=title)
-
-
-# def balance():
-#     title = "My balances"
-#     my_balances = get_data.get_balance()
-#     return render("balance.html", title=title, my_balances=my_balances)
-
-
-# def download_last_prices_data():
-#     return get_data.get_last_prices()
-
-
-# def download_1day_interval_report_for_btcusdt_data():
-#     return get_data.get_1day_interval_report_for_btcusdt()
-
-
-# pusher = Pusher(
-#     app_id = "1314831",
-#     key = "9679e7e81e540fc2574f",
-#     secret = "02359172c078f068c8a2",
-#     cluster = "us3",
-#     ssl=True,
-#  )
-# times = []
-# currencies = ["BTC"]
-# prices = {"BTC": []}
-
-
-# def bitcoinrealtime(request):
-#    pusher = Pusher(
-#    app_id = "1310064",
-#    key = "d09e49e4cef4860923b7",
-#    secret = "48f3b5a74991f80f7b19",
-#    cluster = "us3",
-#    ssl=True
-# )
-#     times = []
-#     currencies = ["BTC"]
-#     prices = {"BTC": []}
-#     return render(request, 'bitcoinrealtime.html', {})
-
-
-# def BTC_data():
-#     current_prices = {}
-#     for currency in currencies:
-#         current_prices[currency] = []
-
-#     times.append(time.strftime('%H:%M:%S'))
-
-#     api_url = "https://min-api.cryptocompare.com/data/pricemulti?fsyms={}&tsyms=USD".format(",".join(currencies))
-#     response = json.loads(requests.get(api_url).content)
-
-#     for currency in currencies:
-#         price = response[currency]['USD']
-#         current_prices[currency] = price
-#         prices[currency].append(price)
-
-#     graph_data = [go.Scatter(
-#         x=times,
-#         y=prices.get(currency),
-#         name="{} Prices".format(currency)
-#         ) for currency in currencies]
-
-#     bar_chart_data = [go.Bar(
-#         x=currencies,
-#         y=list(current_prices.values())
-#         )]
-
-#     data = {
-#         'graph': json.dumps(list(graph_data), cls=plotly.utils.PlotlyJSONEncoder),
-#         'bar_chart': json.dumps(list(bar_chart_data), cls=plotly.utils.PlotlyJSONEncoder)
-#     }
-
-
-#     pusher.trigger("crypto", "data-updated", data)
-
-
-# scheduler = BackgroundScheduler()
-# scheduler.start()
-# scheduler.add_job(
-#     func=BTC_data,
-#     trigger=IntervalTrigger(seconds=10),
-#     id='prices_retrieval_job',
-#     name='Retrieve prices every 10 seconds',
-#     replace_existing=True)
-
-# atexit.register(lambda: scheduler.shutdown())
-class Eth(TemplateView):
-    template_name = 'eth2.html'
-
-    def get_context_data(self, **kwargs):
-        # initiate context
-        context = super().get_context_data(**kwargs)
-        chart = []
-        # get variable from Wallet
-        Wallet.objects.all()
-        wal = Wallet.objects.get(id=2)
-        context['wallet'] = wal.wallet
-
-        # fetcg data
-        df = yf.download(tickers='ETH-USD', period='2y',
-                         interval='1h', parse_dates=True)
-
-        # 1 year comprehensive analysis
-        dd = df.copy()
-        eth_year = wal.eth
-        cash_year = wal.wallet
-        df_date = df.copy()
-        df_sal = df.copy()
-        times = pd.date_range(end=datetime.now(), freq="H", periods=8760)
-        df_wl = df.copy()
-        # df_wl = df_wl.sort_index()
-        df_wl['Date'] = df.index.date.astype(str)
-        df_wl['Time'] = df.index.time.astype(str)
-        # df_wl = df_wl.sort_index()
-        # df_wl['Date'] = df_wl['Date'].astype(str)
-        context['eth_btc_val'] = (df_wl[df_wl['Date'] == str(
-            times[0].date())].iloc[0].Close * eth_year).round(2)
-        for dat in times:
-            value = df_wl[df_wl['Date'] == str(dat.date())]
-            for i in range(0, len(value) - 1):
-                PA = (
-                    (value.Close.iloc[i] - value.Close.iloc[i + 1]) / value.Close.iloc[i + 1]) * 100
-                if PA >= 5:
-                    if eth_year >= 0:
-                        amount = (100 / value.Close.iloc[i])
-                        eth_year -= amount
-                        cash_year += 100
-                elif PA <= -5:
-                    if cash_year >= 100:
-                        cash_year -= 100
-                        eth_year += (1 / value.Close.iloc[i]) * 100
-        context['now_btc_val'] = (df.Close.iloc[-1] * eth_year).round(2)
-        pa = (((df.Close.iloc[-2] - df.Close.iloc[-1]) /
-              df.Close.iloc[-1]) * 100).round(2)
-        signal = ''
-        btc = wal.btc
-        cash = wal.wallet
-        while 1:
-            if pa >= 2:
-                if pa >= 5:
-                    if btc >= 0:
-                        signal += 'Sold Eth'
-                else:
-                    signal += 'Sell coin now!'
-            elif pa <= -5:
-                if cash >= 100:
-                    signal += 'Coin is purchased'
-            else:
-                signal += 'do nothing'
-            break
-        # variable to display on the webpage
-        context['pa'] = pa
-        context['signal'] = signal
-        context['starting'] = times[0]
-        context['ending'] = times[-1]
-        context['btc_year'] = eth_year
-        context['cash_year'] = cash_year
-        context['cash_start'] = wal.wallet
-        context['btc_start'] = wal.eth
-
-        # plot monthly graph
-        df['Date'] = df.index.date.astype(str)
-        df['Time'] = df.index.time.astype(str)
-        layout = go.Layout(title="1 Month Ethereum Data", xaxis={
-                           'title': 'Date'}, yaxis={'title': 'Close'})
-        fig = go.Figure(data=[go.Candlestick(x=df.Date.iloc[-720:],
-                                             open=df['Open'],
-                                             high=df['High'],
-                                             low=df['Low'],
-                                             close=df['Close'])], layout=layout)
-        context['graph_message_1'] = ''
-        context['graph_1'] = fig.to_html()
-        # plot graph on hourly basis
-        value = df.iloc[-24:]
-        dfpl = value.copy()
-        fig = go.Figure()
-        fig.update_layout(title="24 Hours ETH Data",
-                          xaxis_title='Date', yaxis_title='Close')
-        fig.add_trace(go.Candlestick(x=dfpl['Time'],
-                                     open=dfpl.Open,
-                                     high=dfpl.High,
-                                     low=dfpl.Low,
-                                     close=dfpl.Close))
-        context['graph_message_2'] = ''
-        context['graph_2'] = fig.to_html()
-        # 2020 and 2021 difference
-        # df_date['date'] = pd.to_datetime(df_date['date'])
-        df_date['date'] = pd.to_datetime(df.index.date.astype(str))
-        df_date.set_index('date', drop=True, inplace=True)
-        m2021 = df_date.loc['2021', 'Close'].resample('M').mean().values
-        m2020 = df_date.loc['2020', 'Close'].resample('M').mean().values
-        fig = plt.figure(figsize=(6.5, 2), dpi=180)
-        plt.plot(m2021, label='2021')
-        plt.plot(m2020, label='2020')
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June',
-                  'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        plt.xticks(np.arange(0, 12), labels=months, rotation=75)
-        plt.legend(loc=0)
-        plt.grid(True, alpha=0.1)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_3'] = html_str
-        context['graph_message_3'] = '''
-        The above graph shows the average of monthly price for 2020 and 2021. Follwoing are major insights from the graph
-
-- There is a strong up trend from Oct-2020 to Apr-2021
-
-- From Apr to July there is fall in prices
-
-- For both of the years there is up-trend.
-
-Let's dig into the details from Apr to July 2021'''
-
-        aprtojul = df_date.loc['2021-4-1':'2021-7-31',
-                               'Close'].resample('W').mean()
-        fig = plt.figure(figsize=(6, 2), dpi=200)
-        plt.plot(aprtojul)
-        plt.xticks(rotation=75)
-        plt.grid(True, alpha=0.1)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_4'] = html_str
-        context['graph_message_4'] = """
-        Conclusions are:
-
-- There is a small uptrend from third week of april to second week of May
-
-- From 7th of May to 15th of June there is a strong down-trend
-        """
-        context["graph_message_5_upper"] = """
-        Since its a Hourly time series and may follows a certain repetitive pattern every day, we can plot each day as a separate line in the same plot. This lets you compare the day wise patterns side-by-side. Seasonal Plot of a Time Series
-
-"""
-        df_date['year'] = [d.year for d in df_date.index]
-        df_date['month'] = [d.strftime('%b') for d in df_date.index]
-        fig = plt.figure(figsize=(4, 2), dpi=300)
-        ax1 = plt.plot(df_date.loc[df_date.year == 2020, 'month'], df_date.loc[df_date.year == 2020, 'Close'],
-                       label='2020')
-        ax2 = plt.plot(df_date.loc[df_date.year == 2021, 'month'], df_date.loc[df_date.year == 2021, 'Close'],
-                       label='2021')
-        plt.grid(True, alpha=0.2)
-        plt.legend()
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_5'] = html_str
-        context['graph_message_5'] = """
-        Conclusions are:
-
-- There is huge fluctuation in 2021 compare to 2020
-
-- Oct, May and Feb are high fluctuated months
-        """
-
-        # df_sal['date'] = pd.to_datetime(df_sal['date'])
-        df_sal['date'] = pd.to_datetime(df_sal.index.date.astype(str))
-        df_sal.set_index('date', drop=True, inplace=True)
-        df_sal = df_sal.tail(168)
-        df_sal['SMA24'] = SMA2(df_sal)
-        # Get the buy and sell list
-        strat = strategy2(df_sal)
-        df_sal['Buy'] = strat[0]
-        df_sal['Sell'] = strat[1]
-
-        # Visualize the close price and the buy and sell signals
-        fig = plt_sal.figure(figsize=(10.5, 4))
-        plt_sal.title('Bitcoin Close Price and MA with Buy and Sell Signals')
-        plt_sal.plot(df_sal['Close'], alpha=0.5,
-                     label='Close Price Last 7 days')
-        plt_sal.plot(df_sal['SMA24'], alpha=0.5, label='Simple Moving Avg')
-        plt_sal.scatter(
-            df_sal.index, df_sal['Buy'], color='green', label='Buy Signal', alpha=1)
-        plt_sal.scatter(
-            df_sal.index, df_sal['Sell'], color='red', label='Sell Signal', alpha=1)
-        plt_sal.xlabel('Date')
-        plt_sal.ylabel('Close Price in USD')
-        plt_sal.legend(loc=3)
-        html_str = mpld3.fig_to_html(fig)
-        context['graph_6'] = html_str
-        context['graph_message_6'] = """
-The graph above shows the relationship between the date and the close price of ETH in USD.
-
-The blue line trend represents the closing price of ETH over the last seven days, while the red line trend represents the moving averages over one day. 
-
-There are also Buy and Sell Signals on this graph.
-
-Buy = green :-
-
-  Buy ETH when SMA of 1 day goes below the close price 
-
-Sell = Red :-
-
-  Sell When the 1 day SMA goes above the close price
-
-Also, Never going to sell at a price lower than I bought.
-                """
-
-        return context
-
-
-
-
-
 
 # Naveed Code Start's from here Please don't edit in this section
+
+def facerecognition(request):
+    return render(request, "cam.html")
+
+def video_feed(request):
+    
+    StreamingHttpResponse(
+        RealTimeRecognition().open_camer(request),
+        content_type="multipart/x-mixed-replace; boundary=frame",
+    )
 
 
 def indexmain(request):

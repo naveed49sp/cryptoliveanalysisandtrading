@@ -1,6 +1,22 @@
 
+{% extends 'loginbase.html' %}
 
-{% extends 'base.html' %}
+{% block body %}
+
+{% if error %}
+{{ error }}
+
+
+{% endif %}
+
+
+
+
+
+{% endblock %}
+
+
+
 
 {% block content %}
 
@@ -8,31 +24,74 @@
 {% if error %}
 {{ error }}
 
-<br/>
-<br/>
+<br />
+<br />
 {% endif %}
-<h1>Signup!</h1>
 
-<form method = "POST" action="{% url 'signup' %}">
-    {% csrf_token %}
-    username:
-    <br/>
-    <input type="text" name="username" />
-    <br/>
-    Password:
-    <br/>
-    <input type="password" name="password1" />
-    <br/>
-    confirm Password:
-    <br/>
-    <input type="password" name="password2" />
-    <br/>
-    <input class ="btn btn-primary" type="submit" value= "signup" />
-    <br/>
+<div class="limiter">
+    <div class="container-login100">
+        <div class="wrap-login100">
+            <div class="login100-pic js-tilt" data-tilt>
+                <img src="static\images\img-01.png" alt="IMG" />
+            </div>
 
+            <form class="login100-form validate-form" method = "POST" action="{% url 'signup' %}">
+                {% csrf_token %}
+                <span class="login100-form-title"> Member Signup </span>
+                <div class="wrap-input100 validate-input" data-validate="Valid email is required: ex@abc.xyz">
+                    <input class="input100" type="text" name="username" placeholder="Enter User Name" />
+                    <span class="focus-input100"></span>
+                    <span class="symbol-input100">
+                        <i class="fa fa-envelope" aria-hidden="true"></i>
+                    </span>
+                </div>
 
+                <div class="wrap-input100 validate-input" data-validate="Password is required">
+                    <input class="input100" type="password" name="password1" placeholder="Password" />
+                    <span class="focus-input100"></span>
+                    <span class="symbol-input100">
+                        <i class="fa fa-lock" aria-hidden="true"></i>
+                    </span>
+                </div>
 
-</form>
+                <div class="wrap-input100 validate-input" data-validate="Password is required">
+                    <input class="input100" type="password" name="password2" placeholder="Confirm Password" />
+                    <span class="focus-input100"></span>
+                    <span class="symbol-input100">
+                        <i class="fa fa-lock" aria-hidden="true"></i>
+                    </span>
+                </div>
+
+                <div class="container-login100-form-btn">
+                    <button class="login100-form-btn">Signup</button>
+                    <br>
+                </div>
+                <div class="container-login100-form-btn">
+                </div>
+            </form>
+            <a href="{% url 'login' %}">LogIn</a> 
+            <a href="/">Back</a> 
+        </div>
+    </div>
+</div>
+
+<!--===============================================================================================-->
+<script src="static/vendor/jquery/jquery-3.2.1.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/bootstrap/js/popper.js"></script>
+<script src="static/vendor/bootstrap/js/bootstrap.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/select2/select2.min.js"></script>
+<!--===============================================================================================-->
+<script src="static/vendor/tilt/tilt.jquery.min.js"></script>
+<script>
+    $(".js-tilt").tilt({
+        scale: 1.1,
+    });
+</script>
+<!--===============================================================================================-->
+<script src="static\js\main.js"></script>
 
 
 {% endblock %}
+
